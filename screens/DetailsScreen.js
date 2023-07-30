@@ -1,9 +1,9 @@
-import React, { useState , useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Picker } from 'react-native';
 import { States, Districts } from "state-district-component";
 import Select from 'react-select';
-
-
+import { ref, push } from "firebase/database";
+import { database } from "../firebase/config";
 
 const cuisineOptions = [
   { value: 'South Indian', label: 'South Indian' },
@@ -30,39 +30,31 @@ const cuisineOptions = [
   { value: 'Other', label: 'Other' },
 ];
 
-const DetailsScreen = ({ navigation , firebase }) => {
+const DetailsScreen = ({ navigation }) => {
   const [name, setName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [countryCode, setCountryCode] = useState('IN'); // Default country code to India
+  const [countryCode, setCountryCode] = useState('IN');
   const [address, setAddress] = useState('');
   const [selectedCuisines, setSelectedCuisines] = useState([]);
-  // State and District Selection Handlers
-  const [state, setState] = useState({
-    value: 'Karnataka', // Default state to Karnataka
-    label: 'Karnataka',
-  });
-  const [district, setDistrict] = useState({
-    value: 'Bengaluru (Bangalore) Rural',
-    label: 'Bengaluru (Bangalore) Rural'
-  });
+  const [state, setState] = useState(null);
+  const [district, setDistrict] = useState(null);
 
 
-  useEffect(() => {
-    // Load Indian states on component mount
-    setState('Karnataka');
-    setDistrict(null);
-  }, []);
-
-  
+  const getStateValue = (value) => {
+    // for geting  the input value pass the function in oChnage props and you will get value back from component
+    setState(value);
+    console.log(value)
+  };
+  const getDistrictValue = (value) => {
+    setDistrict(value);
+    console.log(value)
+  };
 
   const handleContinue = () => {
-    // Validate input fields (you can add more validation logic here)
     if (!name || !phoneNumber || phoneNumber.length !== 10 || !state || !district) {
       alert('Please fill in mandatory fields and ensure Phone Number is 10 digits.');
       return;
     }
-
-    // Navigate to HomeScreen
     navigation.navigate('Home');
   };
 
@@ -79,12 +71,51 @@ const DetailsScreen = ({ navigation , firebase }) => {
     setSelectedCuisines(selectedOptions);
   };
 
-  const handleUploadToDatabase = () => {
-   console.log("in handleUploadToDatabase")
+  const handleUploadToDatabase = (userId) => {
+    
+    if (!state || !district) {
+      console.log("state:", setState(value));
+      console.log("district:",setDistrict(value) );
+      alert('Please select State and District.');
+      return;
+    }
+    const newData = {
+      name: name,
+      phoneNumber: phoneNumber,
+      countryCode: countryCode,
+      address: address,
+      state: state,
+      district: district,
+      cuisines: selectedCuisines.map((cuisine) => cuisine.label),
+    };
+    console.log("newData:", newData);
+
+    // Upload data to Firebase with a new user_id
+    push(ref(database, `restaurants/${userId}`), newData)
+      .then(() => {
+        // Reset input fields after successful upload
+        setName('');
+        setPhoneNumber('');
+        setAddress('');
+        setSelectedCuisines([]);
+        setState({
+          value: 'Karnataka',
+          label: 'Karnataka',
+        });
+        setDistrict(null);
+        setCountryCode('IN');
+      })
+      .catch((error) => {
+        console.error("Error uploading data:", error);
+      });
   };
 
-
-
+  // Function to generate a new user_id
+  const generateUserId = () => {
+    // You can implement your own logic to generate a unique user_id here
+    // For simplicity, we'll generate a random user_id using the current timestamp
+    return new Date().getTime().toString();
+  };
 
   return (
     <View style={styles.container}>
@@ -126,27 +157,30 @@ const DetailsScreen = ({ navigation , firebase }) => {
         onChangeText={setAddress}
       />
     {/* State and District Selection */}
-    <View style={styles.stateDistrictContainer}>
-        <View  style={styles.stateContainer}  >
-          <Text style={styles.label}  >State:</Text>
-          <States styles={styles.stateSelect} 
-          onChange={setState} 
-          value={state} 
-           />
+     <View style={styles.stateDistrictContainer}>
+        <View style={styles.stateContainer}>
+          <Text style={styles.label}>State:</Text>
+          <States
+            className="state-input" // You can add a custom className here if needed
+            styles={styles.stateSelect} // Custom styles for the input field
+            onChange={getStateValue} // Pass the state update function here
+          />
         </View>
         <View style={styles.districtContainer}>
-          <Text style={styles.label} editable={false} >District:</Text>
-          {state && (
+          <Text style={styles.label}>District:</Text>
+       
             <Districts
-              state={state}
-              styles={styles.districtSelect}
-              onChange={setDistrict}
-              value={district}
-              
+              className="district-input" // You can add a custom className here if needed
+              style={styles.districtSelect} // Custom styles for the input field
+              state={state} // Pass the selected state here to filter districts
+              onChange={getDistrictValue} // Pass the district update function here
             />
-          )}
+   
         </View>
       </View>
+
+
+
       <View style={styles.cuisineContainer}>
         <Select
           isMulti
@@ -165,6 +199,7 @@ const DetailsScreen = ({ navigation , firebase }) => {
     </View>
   );
 };
+
 
 const styles = StyleSheet.create({
   container: {
@@ -249,6 +284,5 @@ const styles = StyleSheet.create({
    // height: 40, // Set the same height for both State and District dropdowns
   },
 });
-
 
 export default DetailsScreen;
