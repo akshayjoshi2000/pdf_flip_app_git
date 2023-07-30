@@ -1,34 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform, Linking } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
+import imageCompression from 'browser-image-compression';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage } from '../firebase/config';
+import { v4 as uuidv4 } from "uuid";
+import { useNavigation } from '@react-navigation/native';
 
-const HomeScreen = () => {
+const HomeScreen = ({ onConversionStart, onImagesSelected, navigation }) => {
   const [pdfUri, setPdfUri] = useState(null);
-  const [isConverting, setIsConverting] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [convertedMessage, setConvertedMessage] = useState('');
+  const [imageUploads, setImageUploads] = useState([]);
+  const [isLoading, setIsLoading] = useState(false); // Loading state
 
-  useEffect(() => {
-    if (isConverting) {
-      // Simulate conversion progress with setInterval
-      const progressInterval = setInterval(() => {
-        setProgress(prevProgress => {
-          const newProgress = prevProgress + 10;
-          return newProgress <= 100 ? newProgress : 100;
-        });
-      }, 1000); // Adjust the interval time based on actual conversion time
-
-      // Simulate conversion completion with setTimeout
-      setTimeout(() => {
-        setIsConverting(false);
-        clearInterval(progressInterval);
-        setConvertedMessage('PDF successfully converted to a flipbook!');
-        setPdfUri(null); // Reset pdfUri once the flipbook is displayed
-        downloadConvertedFlipbook(); // Download the converted flipbook
-      }, 10000); // Adjust the timeout value based on actual conversion time
-    }
-  }, [isConverting]);
 
   const handleChooseFile = async () => {
     if (!pdfUri) {
@@ -39,15 +22,7 @@ const HomeScreen = () => {
 
         if (result.type === 'success') {
           setPdfUri(result.uri);
-          setIsConverting(true);
-          setProgress(0);
-
-          // Save PDF to a temporary folder
-          const tempDir = `${FileSystem.cacheDirectory}pdfs/`;
-          await FileSystem.makeDirectoryAsync(tempDir, { intermediates: true });
-          const fileName = result.uri.split('/').pop();
-          const newUri = `${tempDir}${fileName}`;
-          await FileSystem.copyAsync({ from: result.uri, to: newUri });
+          onConversionStart(); // Trigger the conversion start callback
         }
       } catch (err) {
         console.log('Error picking PDF:', err);
@@ -55,54 +30,103 @@ const HomeScreen = () => {
     }
   };
 
-  const downloadConvertedFlipbook = async () => {
-    // Simulate generating flipbook content
-    const flipbookContent = '<div>PDF Content Converted to Flipbook</div>';
-    const flipbookFileName = 'flipbook.html';
+  const ActivityIndicatorWrapper = ({ isLoading }) => (
+    isLoading ? <ActivityIndicator size="large" color="#007bff" /> : null
+  );
 
-    // Save flipbook to the device's file system
-    await FileSystem.writeAsStringAsync(
-      `${FileSystem.documentDirectory}${flipbookFileName}`,
-      flipbookContent
-    );
+  const handleImageUpload = async (e) => {
+    try {
+      setIsLoading(true); // Start loading animation
+      const files = Array.from(e.target.files);
 
-    // Trigger the download
-    if (Platform.OS === 'web') {
-      // For web platform
-      const link = document.createElement('a');
-      link.href = `${FileSystem.documentDirectory}${flipbookFileName}`;
-      link.download = flipbookFileName;
-      link.click();
-      setConvertedMessage(''); // Reset converted message after download
-    } else if (Platform.OS === 'android') {
-      // For Android platform
-      const fileUri = `file://${FileSystem.documentDirectory}${flipbookFileName}`;
-      Linking.openURL(fileUri);
-      setConvertedMessage(''); // Reset converted message after download
+      // Limit the number of images to a maximum of 20
+      if (files.length > 20) {
+        alert('Please select a maximum of 20 images.');
+        setIsLoading(false); // Stop loading animation
+        return;
+      }
+
+      // Compress and save the selected images in the state
+      const compressedImages = await Promise.all(
+        files.map(async (file) => {
+          const compressedImage = await imageCompression(file, {
+            maxSizeMB: 0.3, // Set the maximum size of the compressed image (0.3MB in this example)
+            maxWidthOrHeight: 1080, // Set the maximum width or height of the compressed image (1080px in this example)
+          });
+          return compressedImage;
+        })
+      );
+      setImageUploads(compressedImages);
+
+      // Trigger the images selected callback with the compressed images
+      onImagesSelected(compressedImages);
+      setIsLoading(false); // Stop loading animation
+    } catch (err) {
+      console.log('Error picking images:', err);
+      setIsLoading(false); // Stop loading animation
     }
   };
+
+  const uploadFiles = () => {
+    const timestamp = Date.now();
+    const randomIdentifier = Math.random().toString(36).substring(2, 10);
+    const folderName = `${timestamp}_${randomIdentifier}`;
+
+    const uploadPromises = imageUploads.map((file) => {
+      const imageRef = ref(
+        storage,
+        `${folderName}/${uuidv4()}`
+      );
+      return uploadBytes(imageRef, file).then((snapshot) => {
+        return getDownloadURL(snapshot.ref);
+      });
+    });
+    
+    // Now you can handle the uploadPromises as needed (e.g., store the download URLs or trigger a callback)
+    // For example, you can use Promise.all to wait for all uploads to complete:
+    Promise.all(uploadPromises)
+      .then((downloadUrls) => {
+        // downloadUrls will contain an array of download URLs for the uploaded images
+        console.log("Uploaded URLs:", downloadUrls);
+      })
+      .catch((error) => {
+        console.error("Error uploading images:", error);
+      });
+
+      navigation.navigate('ViewQR');
+  };
+
 
   return (
     <View style={styles.container}>
       <Text style={styles.header}>PDF to Flipbook Converter</Text>
-      {pdfUri ? (
-        <Text style={styles.message}>PDF file uploaded!</Text>
-      ) : (
-        <TouchableOpacity onPress={handleChooseFile} style={styles.button}>
-          <Text style={styles.buttonText}>Choose PDF File</Text>
-        </TouchableOpacity>
-      )}
-      {isConverting && (
-        <View style={styles.progressBar}>
-          <View
-            style={{ width: `${progress}%`, height: 10, backgroundColor: '#007bff', borderRadius: 5 }}
-          />
-          <Text style={styles.progressText}>{`${progress}%`}</Text>
+      <View style={styles.buttonContainer}>
+        <label htmlFor="image-upload" 
+           style={styles.button}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleImageUpload}
+        >
+          <Text style={styles.buttonText}>Choose Images</Text>
+        </label>
+        <input
+          id="image-upload"
+          type="file"
+          multiple
+          accept=".jpg, .jpeg, .png"
+          onChange={handleImageUpload}
+          style={{ display: 'none' }} // Hide the input element
+        />
+      </View>
+      <ActivityIndicatorWrapper isLoading={isLoading} />
+      <View style={styles.buttonContainer}>
+      <View styles={styles.button}>        
+          <TouchableOpacity onPress={uploadFiles} style={styles.button}>
+            <Text style={styles.buttonText}>Upload Image To Firebase</Text>
+          </TouchableOpacity>
         </View>
-      )}
-      {convertedMessage !== '' && !isConverting && (
-        <Text style={styles.message}>{convertedMessage}</Text>
-      )}
+      </View>
     </View>
   );
 };
@@ -118,11 +142,14 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 20,
   },
+  buttonContainer: {
+    alignItems: 'center',
+    marginVertical: 10,
+  },
   button: {
     backgroundColor: '#007bff',
     padding: 10,
     borderRadius: 5,
-    marginVertical: 10,
   },
   buttonText: {
     color: 'white',
@@ -130,22 +157,21 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   message: {
-    marginTop: 20,
-    fontSize: 18,
+    marginTop: 5,
+    fontSize: 16,
     color: '#007bff',
     fontWeight: 'bold',
   },
-  progressBar: {
-    width: '80%',
-    height: 20,
+  progressBarContainer: {
+    width: '100%',
+    height: 10,
     backgroundColor: '#f0f0f0',
-    borderRadius: 10,
+    borderRadius: 5,
     overflow: 'hidden',
-    marginTop: 10,
   },
-  progressText: {
-    marginTop: 5,
-    textAlign: 'center',
+  progressBar: {
+    height: '100%',
+    backgroundColor: '#007bff',
   },
 });
 
