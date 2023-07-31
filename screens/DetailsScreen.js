@@ -4,6 +4,7 @@ import { States, Districts } from "state-district-component";
 import Select from 'react-select';
 import { ref, push } from "firebase/database";
 import { database } from "../firebase/config";
+import RadioForm, { RadioButton, RadioButtonInput, RadioButtonLabel } from 'react-native-simple-radio-button';
 
 const cuisineOptions = [
   { value: 'South Indian', label: 'South Indian' },
@@ -30,15 +31,27 @@ const cuisineOptions = [
   { value: 'Other', label: 'Other' },
 ];
 
-const DetailsScreen = ({ navigation }) => {
+const radioOptions = [
+  { label: 'Vegetarian', value: 0 },
+  { label: 'Non-Vegetarian', value: 1 },
+  { label: 'Egg + Veg', value: 2 },
+  { label: 'Both', value: 3 },
+];
+
+const DetailsScreen = ({ navigation, route  }) => {
   const [name, setName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [countryCode, setCountryCode] = useState('IN');
+  const [countryCode, setCountryCode] = useState('+91');
+  const [restaurantName, setRestaurantName] = useState('');
   const [address, setAddress] = useState('');
   const [selectedCuisines, setSelectedCuisines] = useState([]);
-  const [state, setState] = useState(null);
-  const [district, setDistrict] = useState(null);
-
+  const [state, setState] = useState('Karnataka');
+  const [district, setDistrict] = useState('Bengaluru (Bangalore) Urban');
+  const [pincode, setPincode] = useState('');
+  const [selectedOption, setSelectedOption] = useState(0);
+   // Extract the bucketUrls from the route.params object
+  const { bucketUrls } = route.params || {};
+  console.log("bucket url", bucketUrls)
 
   const getStateValue = (value) => {
     // for geting  the input value pass the function in oChnage props and you will get value back from component
@@ -50,29 +63,38 @@ const DetailsScreen = ({ navigation }) => {
     console.log(value)
   };
 
+  const handlePincodeChange = (text) => {
+    // Ensure only numbers with a maximum of 6 digits are accepted
+    if (/^\d{0,6}$/.test(text)) {
+      setPincode(text);
+    }
+  };
+
+  const handleOptionSelect = (value) => {
+    setSelectedOption(value);
+  };
+
   const handleContinue = () => {
     if (!name || !phoneNumber || phoneNumber.length !== 10 || !state || !district) {
       alert('Please fill in mandatory fields and ensure Phone Number is 10 digits.');
       return;
     }
-    navigation.navigate('Home');
-  };
-
-  const handleStateChange = (selectedOption) => {
-    setState(selectedOption);
-    setDistrict(null);
-  };
-
-  const handleDistrictChange = (selectedOption) => {
-    setDistrict(selectedOption);
+    navigation.navigate('viewqr');
   };
 
   const handleCuisineChange = (selectedOptions) => {
     setSelectedCuisines(selectedOptions);
   };
 
+
   const handleUploadToDatabase = (userId) => {
+    if (!bucketUrls){
+      console.log("Bucket URLs:", bucketUrls);
+      alert('bucket url not sent.');
+      return;
+    }
     
+
     if (!state || !district) {
       console.log("state:", setState(value));
       console.log("district:",setDistrict(value) );
@@ -83,10 +105,14 @@ const DetailsScreen = ({ navigation }) => {
       name: name,
       phoneNumber: phoneNumber,
       countryCode: countryCode,
+      restaurantName: restaurantName,
+      pincode: pincode,
       address: address,
       state: state,
       district: district,
       cuisines: selectedCuisines.map((cuisine) => cuisine.label),
+      imagesBucketURL: bucketUrls,
+      foodType: radioOptions[selectedOption].label,
     };
     console.log("newData:", newData);
 
@@ -96,6 +122,9 @@ const DetailsScreen = ({ navigation }) => {
         // Reset input fields after successful upload
         setName('');
         setPhoneNumber('');
+        setRestaurantName('');
+        setPincode('')
+        setSelectedOption('')
         setAddress('');
         setSelectedCuisines([]);
         setState({
@@ -108,13 +137,8 @@ const DetailsScreen = ({ navigation }) => {
       .catch((error) => {
         console.error("Error uploading data:", error);
       });
-  };
 
-  // Function to generate a new user_id
-  const generateUserId = () => {
-    // You can implement your own logic to generate a unique user_id here
-    // For simplicity, we'll generate a random user_id using the current timestamp
-    return new Date().getTime().toString();
+      navigation.navigate('ViewQR');
   };
 
   return (
@@ -132,7 +156,7 @@ const DetailsScreen = ({ navigation }) => {
           style={styles.countryCode}
           onValueChange={(itemValue) => setCountryCode(itemValue)}
         >
-          <Picker.Item label="India (+91)" value="IN" />
+          <Picker.Item label="India (+91)" value="+91" />
           <Picker.Item label="United States (+1)" value="US" />
           {/* Add more countries as needed */}
         </Picker>
@@ -150,6 +174,68 @@ const DetailsScreen = ({ navigation }) => {
           maxLength={10} // Limit the input to 10 characters
         />
       </View>
+      {/* Restaurant Name Field */}
+      <View style={styles.inputContainer}>
+        <TextInput
+          style={styles.input}
+          placeholder="Restaurant Name"
+          value={restaurantName}
+          onChangeText={setRestaurantName}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Pincode"
+          value={pincode}
+          onChangeText={setPincode}
+          keyboardType="numeric" // To show numeric keyboard
+        />
+      </View>
+
+      {/* Radio Button Container */}
+    <View style={styles.radioContainer}>
+        <View style={styles.radioRow}>
+          {radioOptions.slice(0, 2).map((obj, i) => (
+            <View key={i} style={styles.radioColumn}>
+              <RadioButton labelHorizontal={true}>
+                <RadioButtonInput
+                  obj={obj}
+                  index={i}
+                  isSelected={selectedOption === i}
+                  onPress={handleOptionSelect}
+                  borderWidth={1}
+                  buttonInnerColor={'#007bff'}
+                  buttonOuterColor={selectedOption === i ? '#007bff' : '#000'}
+                  buttonSize={10}
+                  buttonOuterSize={20}
+                />
+                <RadioButtonLabel obj={obj} index={i} onPress={handleOptionSelect} labelStyle={styles.radioLabel} />
+              </RadioButton>
+            </View>
+          ))}
+        </View>
+        <View style={styles.radioRow}>
+          {radioOptions.slice(2, 4).map((obj, i) => (
+            <View key={i} style={styles.radioColumn}>
+              <RadioButton labelHorizontal={true}>
+                <RadioButtonInput
+                  obj={obj}
+                  index={i + 2}
+                  isSelected={selectedOption === i + 2}
+                  onPress={handleOptionSelect}
+                  borderWidth={1}
+                  buttonInnerColor={'#007bff'}
+                  buttonOuterColor={selectedOption === i + 2 ? '#007bff' : '#000'}
+                  buttonSize={10}
+                  buttonOuterSize={20}
+                />
+                <RadioButtonLabel obj={obj} index={i + 2} onPress={handleOptionSelect} labelStyle={styles.radioLabel} />
+              </RadioButton>
+            </View>
+          ))}
+        </View>
+      </View>
+
+      {/* Address Container */}
       <TextInput
         style={styles.input}
         placeholder="Address"
@@ -242,11 +328,18 @@ const styles = StyleSheet.create({
     borderColor: 'gray',
     borderRadius: 5,
     padding: 10,
-    height: 40, // Set the height to match the other input fields
+    height: 40, 
+    width: '80%',// Set the height to match the other input fields
   },
   cuisineContainer: {
     width: '80%', // Set width to around 80% of the screen
     marginBottom: 10,
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    width: '80%',
   },
   button: {
     backgroundColor: '#007bff',
@@ -258,6 +351,23 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+
+  radioContainer: {
+    width: '100%',
+    marginBottom: 10,
+    width: '80%',
+  },
+  radioRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  radioColumn: {
+    flex: 1,
+  },
+  radioLabel: {
+    fontSize: 14,
+    marginLeft: 10,
   },
   
   stateDistrictContainer: {

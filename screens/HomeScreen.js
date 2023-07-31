@@ -85,17 +85,19 @@ const HomeScreen = ({ onConversionStart, onImagesSelected, navigation }) => {
     // Now you can handle the uploadPromises as needed (e.g., store the download URLs or trigger a callback)
     // For example, you can use Promise.all to wait for all uploads to complete:
     Promise.all(uploadPromises)
-      .then((downloadUrls) => {
-        // downloadUrls will contain an array of download URLs for the uploaded images
-        console.log("Uploaded URLs:", downloadUrls);
-      })
-      .catch((error) => {
-        console.error("Error uploading images:", error);
-      });
+    .then((downloadUrls) => {
+      // downloadUrls will contain an array of download URLs for the uploaded images
+      console.log("Uploaded URLs:", downloadUrls);
 
-      navigation.navigate('ViewQR');
+      // Now you can navigate to the DetailsScreen and pass the bucket URLs as params
+      navigation.navigate('Details', { bucketUrls: downloadUrls });
+    })
+    .catch((error) => {
+      console.error("Error uploading images:", error);
+    });
+
+      
   };
-
 
   return (
     <View style={styles.container}>
