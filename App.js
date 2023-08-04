@@ -7,21 +7,15 @@ import DetailsScreen from './screens/DetailsScreen';
 import ViewQRScreen from './screens/ViewQRScreen';
 import { BrowserRouter as Router, Route, Switch } from 'react-router-dom';
 
-
 const Stack = createStackNavigator();
-
-const HomeRoute = () => (
-  <Route path="/home" component={Home} />
-);
 
 export default function App() {
   return (
     <NavigationContainer>
       <Stack.Navigator initialRouteName="Home" >
         <Stack.Screen name="Details" component={DetailsScreen} options={{ title: 'Details' }} />  
-       <Stack.Screen name="Home"  component={HomeScreen} options={{ title: 'PDF to Flipbook Converter' }} />
-             
-        <Stack.Screen name="ViewQR" component={ViewQRScreen} options={{ title: 'View QR Code Page' }} />
+        <Stack.Screen name="Home"  component={HomeScreen} options={{ title: 'PDF to Flipbook Converter' }} />         
+        <Stack.Screen name="ViewQR" component={ViewQRScreen} options={{ title: 'Scan For Menu' }} />
       </Stack.Navigator>
     </NavigationContainer>
     

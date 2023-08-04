@@ -40,8 +40,8 @@ const HomeScreen = ({ onConversionStart, onImagesSelected, navigation }) => {
       const files = Array.from(e.target.files);
 
       // Limit the number of images to a maximum of 20
-      if (files.length > 20) {
-        alert('Please select a maximum of 20 images.');
+      if (files.length > 30) {
+        alert('Please select a maximum of 30 images.');
         setIsLoading(false); // Stop loading animation
         return;
       }

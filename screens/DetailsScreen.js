@@ -51,7 +51,7 @@ const DetailsScreen = ({ navigation, route  }) => {
   const [selectedOption, setSelectedOption] = useState(0);
    // Extract the bucketUrls from the route.params object
   const { bucketUrls } = route.params || {};
-  console.log("bucket url", bucketUrls)
+ // console.log("bucket url", bucketUrls)
 
   const getStateValue = (value) => {
     // for geting  the input value pass the function in oChnage props and you will get value back from component
@@ -79,7 +79,7 @@ const DetailsScreen = ({ navigation, route  }) => {
       alert('Please fill in mandatory fields and ensure Phone Number is 10 digits.');
       return;
     }
-    navigation.navigate('viewqr');
+    //navigation.navigate('viewqr');
   };
 
   const handleCuisineChange = (selectedOptions) => {
@@ -89,7 +89,7 @@ const DetailsScreen = ({ navigation, route  }) => {
 
   const handleUploadToDatabase = (userId) => {
     if (!bucketUrls){
-      console.log("Bucket URLs:", bucketUrls);
+      console.log("Bucket URLs :", bucketUrls);
       alert('bucket url not sent.');
       return;
     }
@@ -114,7 +114,6 @@ const DetailsScreen = ({ navigation, route  }) => {
       imagesBucketURL: bucketUrls,
       foodType: radioOptions[selectedOption].label,
     };
-    console.log("newData:", newData);
 
     // Upload data to Firebase with a new user_id
     push(ref(database, `restaurants/${userId}`), newData)
@@ -138,7 +137,18 @@ const DetailsScreen = ({ navigation, route  }) => {
         console.error("Error uploading data:", error);
       });
 
-      navigation.navigate('ViewQR');
+      const newRef = push(ref(database, `restaurants/${userId}`), newData)
+      .then((reference) => {
+        // Get the newly created node's key (nodeId)
+        const nodeId = reference.key;
+        console.log("New Node ID:", nodeId);
+
+        // Now you can navigate to the ViewQRScreen and pass the nodeId as a parameter
+        navigation.navigate('ViewQR', { nodeId });
+      })
+      .catch((error) => {
+        console.error("Error uploading data:", error);
+      });
   };
 
   return (
