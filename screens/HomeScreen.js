@@ -38,66 +38,84 @@ const HomeScreen = ({ onConversionStart, onImagesSelected, navigation }) => {
     try {
       setIsLoading(true); // Start loading animation
       const files = Array.from(e.target.files);
-
-      // Limit the number of images to a maximum of 20
-      if (files.length > 30) {
-        alert('Please select a maximum of 30 images.');
+  
+      // Limit the number of images to a maximum of 60
+      if (files.length > 60) {
+        alert('Please select a maximum of 60 images.');
         setIsLoading(false); // Stop loading animation
         return;
       }
-
-      // Compress and save the selected images in the state
-      const compressedImages = await Promise.all(
-        files.map(async (file) => {
-          const compressedImage = await imageCompression(file, {
-            maxSizeMB: 0.3, // Set the maximum size of the compressed image (0.3MB in this example)
-            maxWidthOrHeight: 1080, // Set the maximum width or height of the compressed image (1080px in this example)
-          });
-          return compressedImage;
-        })
-      );
-      setImageUploads(compressedImages);
-
-      // Trigger the images selected callback with the compressed images
-      onImagesSelected(compressedImages);
+  
+      // Simulate an upload delay (you can replace this with actual upload logic)
+      await simulateImageUpload(files);
+  
+      setImageUploads(files);
+  
+      // Trigger the images selected callback with the selected images
+      onImagesSelected(files);
+  
+      // Display a success message
+      alert('Images uploaded successfully.');
+  
       setIsLoading(false); // Stop loading animation
     } catch (err) {
       console.log('Error picking images:', err);
       setIsLoading(false); // Stop loading animation
     }
   };
-
-  const uploadFiles = () => {
-    const timestamp = Date.now();
-    const randomIdentifier = Math.random().toString(36).substring(2, 10);
-    const folderName = `${timestamp}_${randomIdentifier}`;
-
-    const uploadPromises = imageUploads.map((file) => {
-      const imageRef = ref(
-        storage,
-        `${folderName}/${uuidv4()}`
-      );
-      return uploadBytes(imageRef, file).then((snapshot) => {
-        return getDownloadURL(snapshot.ref);
-      });
+  
+  // Simulate image upload (replace this with actual upload logic)
+  const simulateImageUpload = async (files) => {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        // Simulate a delay for image upload
+        resolve();
+      }, 2000); // Simulate a 2-second delay (adjust as needed)
     });
-    
-    // Now you can handle the uploadPromises as needed (e.g., store the download URLs or trigger a callback)
-    // For example, you can use Promise.all to wait for all uploads to complete:
-    Promise.all(uploadPromises)
-    .then((downloadUrls) => {
-      // downloadUrls will contain an array of download URLs for the uploaded images
-      console.log("Uploaded URLs:", downloadUrls);
-
-      // Now you can navigate to the DetailsScreen and pass the bucket URLs as params
-      navigation.navigate('Details', { bucketUrls: downloadUrls });
-    })
-    .catch((error) => {
-      console.error("Error uploading images:", error);
-    });
-
-      
   };
+  
+  
+
+  const uploadFiles = async () => {
+    try {
+      setIsLoading(true); // Start loading animation
+  
+      const timestamp = Date.now();
+      const randomIdentifier = Math.random().toString(36).substring(2, 10);
+      const folderName = `${timestamp}_${randomIdentifier}`;
+  
+      const uploadPromises = imageUploads.map(async (file) => {
+        // Convert image to WebP format
+        const webpImage = await imageCompression(file, {
+          mimeType: 'image/webp',
+          maxWidthOrHeight: 1080,
+        });
+  
+        // Apply image compression to the converted WebP image
+        const compressedWebpImage = await imageCompression(webpImage, {
+          maxSizeMB: 0.2, // Set the maximum size of the compressed image (0.3MB in this example)
+          maxWidthOrHeight: 1080, // Set the maximum width or height of the compressed image (1080px in this example)
+        });
+  
+        const webpImageRef = ref(storage, `${folderName}/${uuidv4()}.webp`);
+        await uploadBytes(webpImageRef, compressedWebpImage);
+  
+        const webpDownloadURL = await getDownloadURL(webpImageRef);
+        return webpDownloadURL;
+      });
+  
+      const downloadUrls = await Promise.all(uploadPromises);
+      console.log("Uploaded URLs:", downloadUrls);
+      navigation.navigate('Details', { bucketUrls: downloadUrls });
+    } catch (error) {
+      console.error("Error uploading images:", error);
+    } finally {
+      setIsLoading(false); // Stop loading animation, regardless of success or error
+    }
+  };
+  
+  
+  
 
   return (
     <View style={styles.container}>
@@ -116,7 +134,7 @@ const HomeScreen = ({ onConversionStart, onImagesSelected, navigation }) => {
           id="image-upload"
           type="file"
           multiple
-          accept=".jpg, .jpeg, .png"
+          accept=".jpg, .jpeg, .png, .webp"
           onChange={handleImageUpload}
           style={{ display: 'none' }} // Hide the input element
         />

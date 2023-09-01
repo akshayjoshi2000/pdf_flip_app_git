@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Picker } from 'react-native';
 import { States, Districts } from "state-district-component";
 import Select from 'react-select';
-import { ref, push } from "firebase/database";
-import { database } from "../firebase/config";
+import { firestore } from "../firebase/config";
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import RadioForm, { RadioButton, RadioButtonInput, RadioButtonLabel } from 'react-native-simple-radio-button';
 
 const cuisineOptions = [
@@ -38,7 +38,7 @@ const radioOptions = [
   { label: 'Both', value: 3 },
 ];
 
-const DetailsScreen = ({ navigation, route  }) => {
+const DetailsScreen = ({ navigation, route }) => {
   const [name, setName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [countryCode, setCountryCode] = useState('+91');
@@ -49,9 +49,25 @@ const DetailsScreen = ({ navigation, route  }) => {
   const [district, setDistrict] = useState('Bengaluru (Bangalore) Urban');
   const [pincode, setPincode] = useState('');
   const [selectedOption, setSelectedOption] = useState(0);
-   // Extract the bucketUrls from the route.params object
+  const [selectedSalutation, setSelectedSalutation] = useState('Mr');
+  const [selectedPersonType, setSelectedPersonType] = useState('Owner');
+  const [googlePlusCode, setGooglePlusCode] = useState('');
+  const [website, setWebsite] = useState('');
+  // Extract the bucketUrls from the route.params object
   const { bucketUrls } = route.params || {};
- // console.log("bucket url", bucketUrls)
+  // console.log("bucket url", bucketUrls)
+
+  const salutationOptions = [
+    { label: 'Mr', value: 'Mr' },
+    { label: 'Mrs', value: 'Mrs' },
+    { label: 'Miss', value: 'Miss' },
+  ];
+
+  const personTypeOptions = [
+    { label: 'Manager', value: 'Manager' },
+    { label: 'Owner', value: 'Owner' },
+    { label: 'Receptionist', value: 'Receptionist' },
+  ];
 
   const getStateValue = (value) => {
     // for geting  the input value pass the function in oChnage props and you will get value back from component
@@ -87,87 +103,114 @@ const DetailsScreen = ({ navigation, route  }) => {
   };
 
 
-  const handleUploadToDatabase = (userId) => {
-    if (!bucketUrls){
-      console.log("Bucket URLs :", bucketUrls);
-      alert('bucket url not sent.');
+  const handleUploadToDatabase = async (userId) => {
+    if (!bucketUrls) {
+      console.log("Bucket URLs:", bucketUrls);
+      alert('Bucket URL not sent.');
       return;
     }
-    
 
     if (!state || !district) {
-      console.log("state:", setState(value));
-      console.log("district:",setDistrict(value) );
       alert('Please select State and District.');
       return;
     }
-    const newData = {
-      name: name,
-      phoneNumber: phoneNumber,
-      countryCode: countryCode,
-      restaurantName: restaurantName,
-      pincode: pincode,
-      address: address,
-      state: state,
-      district: district,
-      cuisines: selectedCuisines.map((cuisine) => cuisine.label),
-      imagesBucketURL: bucketUrls,
-      foodType: radioOptions[selectedOption].label,
-    };
 
-    // Upload data to Firebase with a new user_id
-    push(ref(database, `restaurants/${userId}`), newData)
-      .then(() => {
-        // Reset input fields after successful upload
-        setName('');
-        setPhoneNumber('');
-        setRestaurantName('');
-        setPincode('')
-        setSelectedOption('')
-        setAddress('');
-        setSelectedCuisines([]);
-        setState({
-          value: 'Karnataka',
-          label: 'Karnataka',
-        });
-        setDistrict(null);
-        setCountryCode('IN');
-      })
-      .catch((error) => {
-        console.error("Error uploading data:", error);
-      });
+    try {
+      const newData = {
+        salutation: selectedSalutation,
+        personType: selectedPersonType,
+        name: name,
+        phoneNumber: phoneNumber,
+        countryCode: countryCode,
+        restaurantName: restaurantName,
+        pincode: pincode,
+        address: address,
+        googlePlusCode: googlePlusCode,
+        website: website,
+        state: state,
+        district: district,
+        cuisines: selectedCuisines.map((cuisine) => cuisine.label),
+        imagesBucketURL: bucketUrls,
+        foodType: radioOptions[selectedOption].label,
+        timestamp: serverTimestamp(),
+      };
 
-      const newRef = push(ref(database, `restaurants/${userId}`), newData)
-      .then((reference) => {
-        // Get the newly created node's key (nodeId)
-        const nodeId = reference.key;
-        console.log("New Node ID:", nodeId);
+      // Upload data to Firestore
+      const docRef = await addDoc(collection(firestore, 'restaurants'), newData);
 
-        // Now you can navigate to the ViewQRScreen and pass the nodeId as a parameter
-        navigation.navigate('ViewQR', { nodeId });
-      })
-      .catch((error) => {
-        console.error("Error uploading data:", error);
-      });
+      // Get the auto-generated document ID
+      const documentId = docRef.id;
+      console.log("New Document ID:", documentId);
+
+      // Reset input fields after successful upload
+      setName('');
+      setPhoneNumber('');
+      setRestaurantName('');
+      setPincode('');
+      setSelectedOption('');
+      setAddress('');
+      setSelectedCuisines([]);
+      setState('Karnataka');
+      setDistrict('Bengaluru (Bangalore) Urban');
+      setCountryCode('+91');
+      setSelectedSalutation('Mr');
+      setGooglePlusCode('');
+      setWebsite('');
+      setSelectedPersonType('Owner');
+
+      // Now you can navigate to the ViewQRScreen and pass the document ID as a parameter
+      navigation.navigate('ViewQR', { documentId });
+    } catch (error) {
+      console.error("Error uploading data:", error);
+    }
   };
+
 
   return (
     <View style={styles.container}>
       <Text style={styles.header}>Details</Text>
+      <View style={styles.pickerContainer}>
+        {/* Salutation Picker */}
+        <View style={styles.pickerContainerA}>
+          <Text style={styles.text}>Select Salutation:</Text>
+          <Picker
+            selectedValue={selectedSalutation}
+            onValueChange={(itemValue) => setSelectedSalutation(itemValue)}
+          >
+            {salutationOptions.map((option) => (
+              <Picker.Item key={option.value} label={option.label} value={option.value} />
+            ))}
+          </Picker>
+        </View>
+
+        {/* Person Type Picker */}
+        <View style={styles.pickerContainerA}>
+          <Text style={styles.text}>Select Person Type:</Text>
+          <Picker
+            selectedValue={selectedPersonType}
+            onValueChange={(itemValue) => setSelectedPersonType(itemValue)}
+          >
+            {personTypeOptions.map((option) => (
+              <Picker.Item key={option.value} label={option.label} value={option.value} />
+            ))}
+          </Picker>
+        </View>
+      </View>
+
       <TextInput
         style={styles.input}
         placeholder="Name"
         value={name}
         onChangeText={setName}
       />
-       <View style={styles.phoneContainer}>
+      <View style={styles.phoneContainer}>
         <Picker
           selectedValue={countryCode}
           style={styles.countryCode}
           onValueChange={(itemValue) => setCountryCode(itemValue)}
         >
           <Picker.Item label="India (+91)" value="+91" />
-          <Picker.Item label="United States (+1)" value="US" />
+          <Picker.Item label="United States (+1)" value="+1" />
           {/* Add more countries as needed */}
         </Picker>
         <TextInput
@@ -202,7 +245,7 @@ const DetailsScreen = ({ navigation, route  }) => {
       </View>
 
       {/* Radio Button Container */}
-    <View style={styles.radioContainer}>
+      <View style={styles.radioContainer}>
         <View style={styles.radioRow}>
           {radioOptions.slice(0, 2).map((obj, i) => (
             <View key={i} style={styles.radioColumn}>
@@ -252,8 +295,25 @@ const DetailsScreen = ({ navigation, route  }) => {
         value={address}
         onChangeText={setAddress}
       />
-    {/* State and District Selection */}
-     <View style={styles.stateDistrictContainer}>
+
+
+      <View style={styles.inputWrapper}>
+        <TextInput
+          style={styles.input}
+          placeholder="Google Plus Code"
+          value={googlePlusCode}
+          onChangeText={(text) => setGooglePlusCode(text)}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Website (optional)"
+          value={website}
+          onChangeText={(text) => setWebsite(text)}
+        />
+      </View>
+
+      {/* State and District Selection */}
+      <View style={styles.stateDistrictContainer}>
         <View style={styles.stateContainer}>
           <Text style={styles.label}>State:</Text>
           <States
@@ -264,14 +324,14 @@ const DetailsScreen = ({ navigation, route  }) => {
         </View>
         <View style={styles.districtContainer}>
           <Text style={styles.label}>District:</Text>
-       
-            <Districts
-              className="district-input" // You can add a custom className here if needed
-              style={styles.districtSelect} // Custom styles for the input field
-              state={state} // Pass the selected state here to filter districts
-              onChange={getDistrictValue} // Pass the district update function here
-            />
-   
+
+          <Districts
+            className="district-input" // You can add a custom className here if needed
+            style={styles.districtSelect} // Custom styles for the input field
+            state={state} // Pass the selected state here to filter districts
+            onChange={getDistrictValue} // Pass the district update function here
+          />
+
         </View>
       </View>
 
@@ -287,9 +347,9 @@ const DetailsScreen = ({ navigation, route  }) => {
         />
       </View>
       <TouchableOpacity onPress={() => {
-          handleContinue();
-          handleUploadToDatabase();
-        }} style={styles.button}>
+        handleContinue();
+        handleUploadToDatabase();
+      }} style={styles.button}>
         <Text style={styles.buttonText}>Continue</Text>
       </TouchableOpacity>
     </View>
@@ -317,6 +377,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     width: '80%', // Set width to around 80% of the screen
   },
+
   phoneContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -338,11 +399,27 @@ const styles = StyleSheet.create({
     borderColor: 'gray',
     borderRadius: 5,
     padding: 10,
-    height: 40, 
+    height: 40,
     width: '80%',// Set the height to match the other input fields
   },
   cuisineContainer: {
     width: '80%', // Set width to around 80% of the screen
+    marginBottom: 10,
+  },
+  pickerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    width: '80%',
+  },
+  pickerContainerA: {
+    flexDirection: 'column',
+    width: '50%',
+    marginBottom: 10,
+  },
+  inputWrapper:{
+    flexDirection: 'row',
+    width: '80%',
     marginBottom: 10,
   },
   inputContainer: {
@@ -379,7 +456,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginLeft: 10,
   },
-  
+
   stateDistrictContainer: {
     flexDirection: 'row',
     width: '80%',
@@ -388,20 +465,20 @@ const styles = StyleSheet.create({
   },
 
   stateContainer: {
-    width:'50%',
+    width: '50%',
     borderWidth: 1,
     borderColor: 'gray',
     borderRadius: 5,
     padding: 10,
-   // height: 40, // Set the same height for both State and District dropdowns
+    // height: 40, // Set the same height for both State and District dropdowns
   },
   districtContainer: {
-    width:'50%',
+    width: '50%',
     borderWidth: 1,
     borderColor: 'gray',
     borderRadius: 5,
     padding: 10,
-   // height: 40, // Set the same height for both State and District dropdowns
+    // height: 40, // Set the same height for both State and District dropdowns
   },
 });
 
