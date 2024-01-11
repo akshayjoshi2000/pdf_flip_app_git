@@ -10,9 +10,12 @@ const cuisineOptions = [
   { value: 'South Indian', label: 'South Indian' },
   { value: 'North Indian', label: 'North Indian' },
   { value: 'Chinese', label: 'Chinese' },
+  { value: 'Sea Food', label: 'Sea Food' },
   { value: 'Continental', label: 'Continental' },
   { value: 'Thai', label: 'Thai' },
+  { value: 'Kashmiri', label: 'Kashmiri' },
   { value: 'Italian', label: 'Italian' },
+  { value: 'Pan-Asian', label: 'Pan-Asian' },
   { value: 'Mexican', label: 'Mexican' },
   { value: 'Middle Eastern', label: 'Middle Eastern' },
   { value: 'Japanese', label: 'Japanese' },
@@ -23,13 +26,51 @@ const cuisineOptions = [
   { value: 'Mangalorean', label: 'Mangalorean' },
   { value: 'Kerala', label: 'Kerala' },
   { value: 'Punjabi', label: 'Punjabi' },
-  { value: 'Gujarati', label: 'Gujarati' },
+  { value: 'Andhra', label: 'Andhra' },
   { value: 'Bengali', label: 'Bengali' },
   { value: 'Rajasthani', label: 'Rajasthani' },
   { value: 'Goan', label: 'Goan' },
   { value: 'Multicusine', label: 'Multicusine' },
   { value: 'Other', label: 'Other' },
 ];
+
+const restaurantTypes = [
+  { value: 'Cafe', label: 'Cafe' },
+  { value: 'Darshini', label: 'Darshini' },
+  { value: 'Restaurant', label: 'Restaurant' },
+  { value: 'Dhaba', label: 'Dhaba' },
+  { value: 'Food Court', label: 'Food Court' },
+  { value: 'Pub', label: 'Pub' },
+  { value: 'Bar', label: 'Bar' },
+  { value: 'Brewery', label: 'Brewery' },
+  { value: 'Ice Cream Parlor', label: 'Ice Cream Parlor' },
+  { value: 'Pizzeria', label: 'Pizzeria' },
+  { value: 'Seafood Restaurant', label: 'Seafood Restaurant' },
+  { value: 'Barbecue Restaurant', label: 'Barbecue Restaurant' },
+  { value: 'Vegan Restaurant', label: 'Vegan Restaurant' },
+  { value: 'Fine Dining Restaurant', label: 'Fine Dining Restaurant' },
+  { value: 'Fast Food Restaurant', label: 'Fast Food Restaurant' },
+  { value: 'Casual Dining Restaurant', label: 'Casual Dining Restaurant' },
+  { value: 'Vegetarian Restaurant', label: 'Vegetarian Restaurant' },
+  { value: 'South Indian Restaurant', label: 'South Indian Restaurant' },
+  { value: 'North Indian Restaurant', label: 'North Indian Restaurant' },
+  { value: 'Regional Cuisine Restaurant', label: 'Regional Cuisine Restaurant' },
+  { value: 'Ethnic Restaurant', label: 'Ethnic Restaurant' },
+  { value: 'Buffet Restaurant', label: 'Buffet Restaurant' },
+  { value: 'Themed Restaurant', label: 'Themed Restaurant' },
+  { value: 'Specialty Dessert Shop', label: 'Specialty Dessert Shop' },
+  { value: 'Bakery and Pastry Shop', label: 'Bakery and Pastry Shop' },
+  { value: 'Live Entertainment Restaurant', label: 'Live Entertainment Restaurant' },
+  { value: 'Family Restaurant', label: 'Family Restaurant' },
+  { value: 'Street Food Stall', label: 'Street Food Stall' },
+  { value: 'Health Food Cafe', label: 'Health Food Cafe' },
+  { value: 'Mexican Restaurant', label: 'Mexican Restaurant' },
+  { value: 'Japanese Sushi Bar', label: 'Japanese Sushi Bar' },
+  { value: 'Mediterranean Restaurant', label: 'Mediterranean Restaurant' },
+  { value: 'Korean BBQ Restaurant', label: 'Korean BBQ Restaurant' }
+  // Add more restaurant types as needed
+];
+
 
 const radioOptions = [
   { label: 'Vegetarian', value: 0 },
@@ -53,9 +94,21 @@ const DetailsScreen = ({ navigation, route }) => {
   const [selectedPersonType, setSelectedPersonType] = useState('Owner');
   const [googlePlusCode, setGooglePlusCode] = useState('');
   const [website, setWebsite] = useState('');
+  const [locality, setLocality] = useState('');
+  const [ads_reference, setAds_reference] = useState([]);
+  const [selectedRestaurantTypes, setSelectedRestaurantTypes] = useState([]);
+  const [numTables, setNumTables] = useState(0); // Initialize with a default value
+  const [coordinates, setCoordinates] = useState(''); // State for coordinates input
+  const [coordinate, setCoordinate] = useState([null, null]); // State for split coordinates
+
   // Extract the bucketUrls from the route.params object
   const { bucketUrls } = route.params || {};
   // console.log("bucket url", bucketUrls)
+
+  // To access the URL and index in a loop:
+  bucketUrls.map(({ url, index }) => {
+    // Use 'url' and 'index' as needed
+  });
 
   const salutationOptions = [
     { label: 'Mr', value: 'Mr' },
@@ -86,6 +139,19 @@ const DetailsScreen = ({ navigation, route }) => {
     }
   };
 
+  const handleCoordinatesChange = (text) => {
+    setCoordinates(text);
+
+    // Split coordinates on comma and update the state
+    const coordinatesArray = text.split(',');
+    if (coordinatesArray.length === 2) {
+      setCoordinate([parseFloat(coordinatesArray[0]), parseFloat(coordinatesArray[1])]);
+    } else {
+      setCoordinate([null, null]);
+    }
+  };
+
+
   const handleOptionSelect = (value) => {
     setSelectedOption(value);
   };
@@ -115,6 +181,14 @@ const DetailsScreen = ({ navigation, route }) => {
       return;
     }
 
+    const bucketConstant = "gs://scanformenu-d0cf0.appspot.com/";
+    const imageUrl = bucketUrls[0];
+    const folderName = imageUrl.split('/').pop().split('%2F')[0];
+    const bucketUrl = bucketConstant + folderName;
+    console.log(bucketUrl)
+
+   
+
     try {
       const newData = {
         salutation: selectedSalutation,
@@ -129,10 +203,19 @@ const DetailsScreen = ({ navigation, route }) => {
         website: website,
         state: state,
         district: district,
+        RestaurantType: selectedRestaurantTypes.map((RestaurantType) => RestaurantType.label),
         cuisines: selectedCuisines.map((cuisine) => cuisine.label),
         imagesBucketURL: bucketUrls,
+        BucketUrl: bucketUrl,
         foodType: radioOptions[selectedOption].label,
         timestamp: serverTimestamp(),
+        numTables: numTables, 
+        ads_reference: ads_reference, // Replace with your ads_reference
+        locality: locality, // Replace with your locality
+        coordinates: {
+          latitude: parseFloat(coordinate[0]), // Convert latitude to a float
+          longitude: parseFloat(coordinate[1]), // Convert longitude to a float
+        },
       };
 
       // Upload data to Firestore
@@ -149,6 +232,7 @@ const DetailsScreen = ({ navigation, route }) => {
       setPincode('');
       setSelectedOption('');
       setAddress('');
+      setSelectedRestaurantTypes([]);
       setSelectedCuisines([]);
       setState('Karnataka');
       setDistrict('Bengaluru (Bangalore) Urban');
@@ -157,9 +241,11 @@ const DetailsScreen = ({ navigation, route }) => {
       setGooglePlusCode('');
       setWebsite('');
       setSelectedPersonType('Owner');
+      setNumTables(0);
+      setAds_reference([]);
 
       // Now you can navigate to the ViewQRScreen and pass the document ID as a parameter
-      navigation.navigate('ViewQR', { documentId });
+      navigation.navigate('ViewQR', { documentId, numTables });
     } catch (error) {
       console.error("Error uploading data:", error);
     }
@@ -242,6 +328,14 @@ const DetailsScreen = ({ navigation, route }) => {
           onChangeText={setPincode}
           keyboardType="numeric" // To show numeric keyboard
         />
+        {/* Coordinates Input */}
+      <TextInput
+        style={styles.input}
+        placeholder="Coordinates (latitude, longitude)"
+        value={coordinates}
+        onChangeText={handleCoordinatesChange}
+        keyboardType="numeric"
+      />
       </View>
 
       {/* Radio Button Container */}
@@ -288,6 +382,27 @@ const DetailsScreen = ({ navigation, route }) => {
         </View>
       </View>
 
+      <View style={styles.cuisineContainer}>
+        <Select
+          isMulti
+          options={restaurantTypes}
+          value={selectedRestaurantTypes}
+          editable={false}
+          onChange={setSelectedRestaurantTypes}
+          placeholder="Restaurant Type"
+          isSearchable={false}
+        />
+        <Select
+          isMulti
+          options={cuisineOptions}
+          value={selectedCuisines}
+          onChange={handleCuisineChange}
+          placeholder="Select up to 5 cuisines"
+          editable={false}
+          isSearchable={false}
+        />
+      </View>
+
       {/* Address Container */}
       <TextInput
         style={styles.input}
@@ -310,6 +425,13 @@ const DetailsScreen = ({ navigation, route }) => {
           value={website}
           onChangeText={(text) => setWebsite(text)}
         />
+        <TextInput
+          style={styles.input}
+          placeholder="locality"
+          value={locality}
+          onChangeText={(text) => setLocality(text)}
+        />
+        
       </View>
 
       {/* State and District Selection */}
@@ -335,17 +457,24 @@ const DetailsScreen = ({ navigation, route }) => {
         </View>
       </View>
 
+      <TextInput
+        style={styles.input}
+        placeholder="Number of Tables"
+        value={numTables === 0 ? '' : numTables.toString()} // Empty string for 0, or the number as a string
+        onChangeText={(text) => {
+          // Ensure only positive integers for the number of tables
+          if (/^\d+$/.test(text)) {
+            setNumTables(parseInt(text, 10));
+          }
+        }}
+        keyboardType="numeric"
+      />
 
 
-      <View style={styles.cuisineContainer}>
-        <Select
-          isMulti
-          options={cuisineOptions}
-          value={selectedCuisines}
-          onChange={handleCuisineChange}
-          placeholder="Select up to 5 cuisines"
-        />
-      </View>
+
+
+
+
       <TouchableOpacity onPress={() => {
         handleContinue();
         handleUploadToDatabase();
@@ -363,6 +492,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 20,
+
+    top: 0,
   },
   header: {
     fontSize: 24,
@@ -405,6 +536,7 @@ const styles = StyleSheet.create({
   cuisineContainer: {
     width: '80%', // Set width to around 80% of the screen
     marginBottom: 10,
+    zIndex: 10,
   },
   pickerContainer: {
     flexDirection: 'row',
@@ -417,7 +549,7 @@ const styles = StyleSheet.create({
     width: '50%',
     marginBottom: 10,
   },
-  inputWrapper:{
+  inputWrapper: {
     flexDirection: 'row',
     width: '80%',
     marginBottom: 10,

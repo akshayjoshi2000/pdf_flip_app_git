@@ -4,6 +4,7 @@ import { getAnalytics } from "firebase/analytics";
 import { getStorage } from "firebase/storage";
 import { getDatabase } from "firebase/database";
 import { getFirestore } from "firebase/firestore"; 
+import { getAuth } from "firebase/auth"; 
 
 
 const firebaseConfig = {
@@ -23,5 +24,6 @@ const analytics = getAnalytics(app);
 const database = getDatabase(app);
 const storage = getStorage(app);
 const firestore = getFirestore(app); 
+const auth = getAuth(app); 
 
-export  {analytics, storage, database ,firestore };
+export  {analytics, storage, database ,firestore, auth };

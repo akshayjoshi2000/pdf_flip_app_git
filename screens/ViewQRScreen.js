@@ -1,25 +1,20 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Linking, Button } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Button, Linking } from 'react-native';
 import { doc, getDoc } from 'firebase/firestore';
 import { firestore } from '../firebase/config';
-import QRCode from 'qrcode.react';
+import JSZip from 'jszip';
+import QRCode from 'qrcode';
 
 const ViewQRScreen = ({ route }) => {
-  const { documentId } = route.params || {};
-  const qrCodeRef = useRef(null);
-  const [imageDataUrl, setImageDataUrl] = useState(null);
+  const { documentId, numTables } = route.params || {};
   const [restaurantData, setRestaurantData] = useState(null);
-
-  const generateQRCode = () => {
-    // Generate the QR code value here if needed
-  };
 
   useEffect(() => {
     const fetchRestaurantData = async () => {
       try {
         const docRef = doc(firestore, 'restaurants', documentId);
         const docSnapshot = await getDoc(docRef);
-        
+
         if (docSnapshot.exists()) {
           const data = docSnapshot.data();
           setRestaurantData(data);
@@ -31,34 +26,47 @@ const ViewQRScreen = ({ route }) => {
       }
     };
 
+    // Fetch the restaurant data
     fetchRestaurantData();
   }, [documentId]);
 
-  // Concatenate the node ID with the domain URL
-  const qrCodeUrl = `https://scan-for-menu.vercel.app/view/?id=${documentId}`;
-
-  const handleOpenUrl = () => {
-    Linking.openURL(qrCodeUrl); // Open the URL when clicked
+  // Function to generate the QR code URL for a specific table
+  const generateQRCodeUrlForTable = async (tableNumber) => {
+    try {
+      const qrCodeUrl = `https://scanformenu.online/view/?id=${documentId}&table=${tableNumber}`;
+      const qrCodeImageData = await QRCode.toDataURL(qrCodeUrl, { width: 300, format: 'png', errorCorrectionLevel: 'H',margin: 1, });
+      return qrCodeImageData;
+    } catch (error) {
+      console.error(`Error generating QR code for table ${tableNumber}:`, error);
+      return null;
+    }
   };
 
-  const downloadQRCode = () => {
-    const qrCodeImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrCodeUrl)}`;
-    
-    fetch(qrCodeImageUrl)
-      .then(response => response.blob())
-      .then(blob => {
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'QRcode.jpg';
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-      })
-      .catch(error => {
-        console.error('Error downloading QR code:', error);
-      });
-  }
+  // Function to download a zip file containing the QR code for table 1
+  const downloadQRCodeZip = async () => {
+    const zip = new JSZip();
+
+    // Generate QR code images and add to the zip
+    for (let tableNumber = 1; tableNumber <= numTables; tableNumber++) {
+      const qrCodeImageData = await generateQRCodeUrlForTable(tableNumber);
+
+      if (qrCodeImageData) {
+        zip.file(`QRCode_Table_${tableNumber}.png`, qrCodeImageData.split(',')[1], { base64: true });
+      }
+    }
+
+    // Generate the zip file
+    zip.generateAsync({ type: 'blob' }).then((blob) => {
+      // Create a download link and trigger the download
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${restaurantData.restaurantName}_QRCode.zip`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+    });
+  };
 
   return (
     <View style={styles.container}>
@@ -72,15 +80,9 @@ const ViewQRScreen = ({ route }) => {
       ) : (
         <Text style={styles.text}>Fetching data for Node ID: {documentId}</Text>
       )}
-      
-      <TouchableOpacity onPress={handleOpenUrl}>
-        <Text style={styles.link}>Click to View Menu</Text>
-      </TouchableOpacity>
-      <QRCode
-        value={qrCodeUrl} // Pass the qrCodeUrl as the value for generating the QR code
-        size={200} // Set the size of the QR code
-      />
-      <Button title="Download QR Code" onPress={downloadQRCode} />
+
+      {/* Button to download the QR codes as a zip file */}
+      <Button title="Download QR Codes as ZIP" onPress={downloadQRCodeZip} />
     </View>
   );
 };
@@ -93,11 +95,6 @@ const styles = StyleSheet.create({
   },
   text: {
     fontSize: 16,
-    marginBottom: 10,
-  },
-  link: {
-    color: 'blue',
-    textDecorationLine: 'underline',
     marginBottom: 10,
   },
 });
